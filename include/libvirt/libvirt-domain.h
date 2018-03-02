@@ -4756,4 +4756,8 @@ int virDomainSetLifecycleAction(virDomainPtr domain,
                                 unsigned int action,
                                 unsigned int flags);
 
+char *
+virDomainGetSevVmMeasurement(virDomainPtr domain,
+                             unsigned int flags);
+
 #endif /* __VIR_LIBVIRT_DOMAIN_H__ */

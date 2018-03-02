@@ -783,6 +783,7 @@ LIBVIRT_3.9.0 {
 LIBVIRT_4.1.0 {
     global:
         virStoragePoolLookupByTargetPath;
+        virDomainGetSevVmMeasurement;
 } LIBVIRT_3.9.0;
 
 # .... define new API here using predicted next version number ....

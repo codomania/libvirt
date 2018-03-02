@@ -12095,3 +12095,44 @@ int virDomainSetLifecycleAction(virDomainPtr domain,
     virDispatchError(domain->conn);
     return -1;
 }
+
+/**
+ * virDomainGetSevVmMeasurement:
+ * @domain: pointer to domain object
+ * @flags: currently unused, pass 0
+ *
+ * Get launch measurement of SEV guest VM
+ *
+ * Returns a measurement string, or NULL in case of error.
+ */
+char *
+virDomainGetSevVmMeasurement(virDomainPtr domain,
+                             unsigned int flags)
+{
+    virConnectPtr conn;
+    VIR_DOMAIN_DEBUG(domain, "flags=0x%x", flags);
+
+    virResetLastError();
+
+    virCheckDomainReturn(domain, NULL);
+    conn = domain->conn;
+
+    virCheckReadOnlyGoto(conn->flags, error);
+
+    if (conn->driver->domainGetSevVmMeasurement) {
+        char *ret;
+
+        ret = conn->driver->domainGetSevVmMeasurement(domain,
+                                                     flags);
+        if (!ret)
+            goto error;
+
+        return ret;
+    }
+
+    virReportUnsupportedError();
+
+error:
+    virDispatchError(domain->conn);
+    return NULL;
+}
