@@ -3457,6 +3457,16 @@ qemuProcessBuildDestroyMemoryPathsImpl(virQEMUDriverPtr driver,
 }
 
 
+static void
+qemuProcessDestroySevPaths(virDomainSevDefPtr sev)
+{
+    if (!sev)
+        return;
+
+    virFileDeleteTree(sev->configDir);
+    VIR_FREE(sev->configDir);
+}
+
 int
 qemuProcessBuildDestroyMemoryPaths(virQEMUDriverPtr driver,
                                    virDomainObjPtr vm,
@@ -5741,6 +5751,83 @@ qemuProcessPrepareDomain(virQEMUDriverPtr driver,
     return ret;
 }
 
+static int
+qemuBuildSevCreateFile(const char *configDir, const char *name,
+                       const char *data)
+{
+    char *configFile;
+
+    if (!(configFile = virFileBuildPath(configDir, name, ".base64")))
+        return -1;
+
+    if (virFileRewriteStr(configFile, S_IRUSR | S_IWUSR, data) < 0) {
+        virReportSystemError(errno, _("failed to write data to config '%s'"),
+                             configFile);
+        goto error;
+    }
+
+    VIR_FREE(configFile);
+    return 0;
+
+ error:
+    VIR_FREE(configFile);
+    return -1;
+}
+
+static int
+qemuProcessPrepareSevGuestInput(virQEMUDriverPtr driver,
+                                virDomainObjPtr vm)
+{
+    qemuDomainObjPrivatePtr priv = vm->privateData;
+    virDomainDefPtr def = vm->def;
+    virQEMUCapsPtr qemuCaps = priv->qemuCaps;
+    virDomainSevDefPtr sev = def->sev;
+    char *configDir = NULL;
+    char *domPath = virDomainDefGetShortName(def);
+    virQEMUDriverConfigPtr cfg = virQEMUDriverGetConfig(driver);
+
+    if (!sev)
+        return 0;
+
+    VIR_DEBUG("Prepare SEV guest");
+
+    if (!virQEMUCapsGet(qemuCaps, QEMU_CAPS_SEV)) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("Domain %s asked for 'sev' launch but "
+                          "QEMU does not support SEV feature"), vm->def->name);
+        return -1;
+    }
+
+    if (virAsprintf(&configDir, "%s/sev/%s", cfg->configDir, domPath) < 0)
+        goto error;
+
+    if (virFileMakePathWithMode(configDir, S_IRWXU) < 0) {
+        virReportSystemError(errno, _("cannot create config directory '%s'"),
+                             configDir);
+        goto error;
+    }
+
+    if (sev->dh_cert) {
+        if (qemuBuildSevCreateFile(configDir, "dh_cert", sev->dh_cert) < 0)
+            goto error1;
+    }
+
+    if (sev->session) {
+        if (qemuBuildSevCreateFile(configDir, "session", sev->session) < 0)
+            goto error1;
+    }
+
+    VIR_FREE(domPath);
+    sev->configDir = configDir;
+    return 0;
+
+ error1:
+    virFileDeleteTree(configDir);
+ error:
+    VIR_FREE(configDir);
+    VIR_FREE(domPath);
+    return -1;
+}
 
 static int
 qemuProcessPrepareHostStorage(virQEMUDriverPtr driver,
@@ -5864,6 +5951,9 @@ qemuProcessPrepareHost(virQEMUDriverPtr driver,
 
     VIR_DEBUG("Preparing disks (host)");
     if (qemuProcessPrepareHostStorage(driver, vm, flags) < 0)
+        goto cleanup;
+
+    if (qemuProcessPrepareSevGuestInput(driver, vm) < 0)
         goto cleanup;
 
     ret = 0;
@@ -6535,6 +6625,7 @@ void qemuProcessStop(virQEMUDriverPtr driver,
     }
 
     qemuProcessBuildDestroyMemoryPaths(driver, vm, NULL, false);
+    qemuProcessDestroySevPaths(vm->def->sev);
 
     vm->def->id = -1;
 
