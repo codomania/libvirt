@@ -86,6 +86,10 @@ virQEMUCapsSetGICCapabilities(virQEMUCapsPtr qemuCaps,
                               virGICCapability *capabilities,
                               size_t ncapabilities);
 
+void
+virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                              virSEVCapability *capabilities);
+
 int
 virQEMUCapsParseHelpStr(const char *qemu,
                         const char *str,

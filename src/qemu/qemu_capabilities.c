@@ -525,6 +525,8 @@ struct _virQEMUCaps {
     size_t ngicCapabilities;
     virGICCapability *gicCapabilities;
 
+    virSEVCapability *sevCapabilities;
+
     virQEMUCapsHostCPUData kvmCPU;
     virQEMUCapsHostCPUData tcgCPU;
 };
@@ -2811,6 +2813,14 @@ virQEMUCapsSetGICCapabilities(virQEMUCapsPtr qemuCaps,
     qemuCaps->ngicCapabilities = ncapabilities;
 }
 
+void
+virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                              virSEVCapability *capabilities)
+{
+    VIR_FREE(qemuCaps->sevCapabilities);
+
+    qemuCaps->sevCapabilities = capabilities;
+}
 
 static int
 virQEMUCapsProbeQMPCommands(virQEMUCapsPtr qemuCaps,
@@ -3318,6 +3328,19 @@ virQEMUCapsProbeQMPGICCapabilities(virQEMUCapsPtr qemuCaps,
     return 0;
 }
 
+static int
+virQEMUCapsProbeQMPSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                                   qemuMonitorPtr mon)
+{
+    virSEVCapability *caps = NULL;
+
+    if (qemuMonitorGetSEVCapabilities(mon, &caps) < 0)
+        return -1;
+
+    virQEMUCapsSetSEVCapabilities(qemuCaps, caps);
+
+    return 0;
+}
 
 bool
 virQEMUCapsCPUFilterFeatures(const char *name,
@@ -4950,6 +4973,11 @@ virQEMUCapsInitQMPMonitor(virQEMUCapsPtr qemuCaps,
     if (ARCH_IS_X86(qemuCaps->arch) &&
         virQEMUCapsGet(qemuCaps, QEMU_CAPS_QUERY_CPU_MODEL_EXPANSION))
         virQEMUCapsSet(qemuCaps, QEMU_CAPS_CPU_CACHE);
+
+    /* SEV capabilities */
+    if (ARCH_IS_X86(qemuCaps->arch)) {
+        virQEMUCapsProbeQMPSEVCapabilities(qemuCaps, mon);
+    }
 
     ret = 0;
  cleanup:
