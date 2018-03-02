@@ -459,6 +459,7 @@ VIR_ENUM_IMPL(virQEMUCaps, QEMU_CAPS_LAST,
               "pl011",
               "machine.pseries.max-cpu-compat",
               "dump-completed",
+              "sev",
     );
 
 
@@ -524,6 +525,8 @@ struct _virQEMUCaps {
 
     size_t ngicCapabilities;
     virGICCapability *gicCapabilities;
+
+    virSEVCapability *sevCapabilities;
 
     virQEMUCapsHostCPUData kvmCPU;
     virQEMUCapsHostCPUData tcgCPU;
@@ -2811,6 +2814,21 @@ virQEMUCapsSetGICCapabilities(virQEMUCapsPtr qemuCaps,
     qemuCaps->ngicCapabilities = ncapabilities;
 }
 
+void
+virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                              virSEVCapability *capabilities)
+{
+    virSEVCapability *cap = qemuCaps->sevCapabilities;
+
+    if (cap) {
+        VIR_FREE(cap->pdh);
+        VIR_FREE(cap->cert_chain);
+    }
+
+    VIR_FREE(qemuCaps->sevCapabilities);
+
+    qemuCaps->sevCapabilities = capabilities;
+}
 
 static int
 virQEMUCapsProbeQMPCommands(virQEMUCapsPtr qemuCaps,
@@ -3318,6 +3336,19 @@ virQEMUCapsProbeQMPGICCapabilities(virQEMUCapsPtr qemuCaps,
     return 0;
 }
 
+static int
+virQEMUCapsProbeQMPSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                                   qemuMonitorPtr mon)
+{
+    virSEVCapability *caps = NULL;
+
+    if (qemuMonitorGetSEVCapabilities(mon, &caps) < 0)
+        return -1;
+
+    virQEMUCapsSetSEVCapabilities(qemuCaps, caps);
+
+    return 0;
+}
 
 bool
 virQEMUCapsCPUFilterFeatures(const char *name,
@@ -4896,6 +4927,12 @@ virQEMUCapsInitQMPMonitor(virQEMUCapsPtr qemuCaps,
         virQEMUCapsSet(qemuCaps, QEMU_CAPS_MACHINE_PSERIES_MAX_CPU_COMPAT);
     }
 
+    /* no way to query -object sev-guest */
+    if (ARCH_IS_X86(qemuCaps->arch) &&
+        qemuCaps->version >= 2011000) {
+        virQEMUCapsSet(qemuCaps, QEMU_CAPS_SEV);
+    }
+
     if (virQEMUCapsProbeQMPCommands(qemuCaps, mon) < 0)
         goto cleanup;
 
@@ -4950,6 +4987,12 @@ virQEMUCapsInitQMPMonitor(virQEMUCapsPtr qemuCaps,
     if (ARCH_IS_X86(qemuCaps->arch) &&
         virQEMUCapsGet(qemuCaps, QEMU_CAPS_QUERY_CPU_MODEL_EXPANSION))
         virQEMUCapsSet(qemuCaps, QEMU_CAPS_CPU_CACHE);
+
+    /* Probe for SEV capabilities */
+    if (virQEMUCapsGet(qemuCaps, QEMU_CAPS_SEV)) {
+        if (virQEMUCapsProbeQMPSEVCapabilities(qemuCaps, mon) < 0)
+            virQEMUCapsClear(qemuCaps, QEMU_CAPS_SEV);
+    }
 
     ret = 0;
  cleanup:
