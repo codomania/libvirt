@@ -15539,6 +15539,61 @@ virDomainMemoryTargetDefParseXML(xmlNodePtr node,
     return ret;
 }
 
+static void
+virDomainSevDefFree(virDomainSevDefPtr def)
+{
+    VIR_FREE(def->dh_cert);
+    VIR_FREE(def->session);
+
+    VIR_FREE(def);
+}
+
+static virDomainSevDefPtr
+virDomainSevDefParseXML(xmlNodePtr sevNode,
+                        xmlXPathContextPtr ctxt)
+{
+    char *tmp = NULL;
+    xmlNodePtr save = ctxt->node;
+    virDomainSevDefPtr def;
+    unsigned long policy;
+
+    ctxt->node = sevNode;
+
+    if (VIR_ALLOC(def) < 0)
+        return NULL;
+
+    if ((tmp = virXPathString("string(./dh-cert)", ctxt))) {
+        if (VIR_STRDUP(def->dh_cert, tmp) < 0)
+            goto error;
+
+        VIR_FREE(tmp);
+    }
+
+    if ((tmp = virXPathString("string(./session)", ctxt))) {
+        if (VIR_STRDUP(def->session, tmp) < 0)
+            goto error;
+
+        VIR_FREE(tmp);
+    }
+
+    if (virXPathULongHex("string(./policy)", ctxt, &policy) == 0) {
+        def->policy = policy;
+    } else {
+        def->policy = -1;
+    }
+
+    virXPathInt("string(./cbitpos)", ctxt, &def->cbitpos);
+    virXPathInt("string(./reduced-phys-bits)", ctxt, &def->reduced_phys_bits);
+
+    ctxt->node = save;
+    return def;
+
+error:
+    VIR_FREE(tmp);
+    virDomainSevDefFree(def);
+    ctxt->node = save;
+    return NULL;
+}
 
 static virDomainMemoryDefPtr
 virDomainMemoryDefParseXML(virDomainXMLOptionPtr xmlopt,
@@ -20211,6 +20266,15 @@ virDomainDefParseXML(xmlDocPtr xml,
     }
     ctxt->node = node;
     VIR_FREE(nodes);
+
+    /* Check for SEV feature */
+    if ((n = virXPathNodeSet("./sev", ctxt, &nodes)) < 0)
+        goto error;
+
+    if (n) {
+        def->sev = virDomainSevDefParseXML(nodes[0], ctxt);
+        VIR_FREE(nodes);
+    }
 
     /* analysis of memory devices */
     if ((n = virXPathNodeSet("./devices/memory", ctxt, &nodes)) < 0)

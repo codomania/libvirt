@@ -142,6 +142,9 @@ typedef virDomainPanicDef *virDomainPanicDefPtr;
 typedef struct _virDomainMemoryDef virDomainMemoryDef;
 typedef virDomainMemoryDef *virDomainMemoryDefPtr;
 
+typedef struct _virDomainSevDef virDomainSevDef;
+typedef virDomainSevDef *virDomainSevDefPtr;
+
 /* forward declarations virDomainChrSourceDef, required by
  * virDomainNetDef
  */
@@ -2289,6 +2292,18 @@ struct _virDomainKeyWrapDef {
     int dea; /* enum virTristateSwitch */
 };
 
+typedef struct _virDomainSevDef virDomainSevDef;
+typedef virDomainSevDef *virDomainSevDefPtr;
+
+struct _virDomainSevDef {
+    char *dh_cert;
+    char *session;
+    int policy;
+    int cbitpos;
+    int reduced_phys_bits;
+};
+
+
 typedef enum {
     VIR_DOMAIN_IOMMU_MODEL_INTEL,
 
@@ -2453,6 +2468,9 @@ struct _virDomainDef {
     virDomainXMLNamespace ns;
 
     virDomainKeyWrapDefPtr keywrap;
+
+    /* SEV-specific domain */
+    virDomainSevDefPtr sev;
 
     /* Application-specific custom metadata */
     xmlNodePtr metadata;

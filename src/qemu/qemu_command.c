@@ -9663,6 +9663,80 @@ qemuBuildTPMCommandLine(virCommandPtr cmd,
     return 0;
 }
 
+static char *
+qemuBuildSevCreateFile(const virDomainDef *def, const char *name, char *data)
+{
+    char *base = virGetUserConfigDirectory();
+    char *configDir, *configFile;
+    char uuidstr[VIR_UUID_STRING_BUFLEN];
+
+    virUUIDFormat(def->uuid, uuidstr);
+
+    if (virAsprintf(&configDir, "%s/sev/%s", base, uuidstr) < 0)
+        goto error;
+    VIR_FREE(base);
+
+    if (virFileMakePathWithMode(configDir, S_IRWXU) < 0) {
+        virReportSystemError(errno, _("cannot create config directory '%s'"),
+                             configDir);
+        goto error;
+    }
+
+    if (!(configFile = virFileBuildPath(configDir, name, ".base64")))
+        goto error;
+
+    if (virFileRewriteStr(configFile, S_IRUSR | S_IWUSR, data) < 0) {
+        virReportSystemError(errno, _("failed to write data to config '%s'"),
+                             configFile);
+        goto error;
+    }
+
+    return configFile;
+
+error:
+    return NULL;
+}
+
+static int
+qemuBuildSevCommandLine(virCommandPtr cmd,
+                        const virDomainDef *def)
+{
+    virDomainSevDefPtr sev = def->sev;
+    virBuffer buf = VIR_BUFFER_INITIALIZER;
+    virBuffer obj = VIR_BUFFER_INITIALIZER;
+    char *dh_cert_file = NULL;
+    char *session_file = NULL;
+
+    /* qemu accepts DH and session blob as file, create a temporary file */
+    if (sev->dh_cert &&
+        !(dh_cert_file = qemuBuildSevCreateFile(def, "dh_cert", sev->dh_cert)))
+        return -1;
+
+    if (sev->session &&
+        !(session_file = qemuBuildSevCreateFile(def, "session", sev->session)))
+        return -1;
+
+    virCommandAddArg(cmd, "-machine");
+    virBufferAddLit(&buf, "memory-encryption=sev0");
+    virCommandAddArgBuffer(cmd, &buf);
+
+    virCommandAddArg(cmd, "-object");
+    virBufferAddLit(&obj, "sev-guest,id=sev0");
+    if (sev->policy > 0)
+        virBufferAsprintf(&obj, ",policy=0x%x", sev->policy);
+    virBufferAsprintf(&obj, ",cbitpos=%d", sev->cbitpos);
+    virBufferAsprintf(&obj, ",reduced-phys-bits=%d", sev->reduced_phys_bits);
+    if (dh_cert_file)
+        virBufferAsprintf(&obj, ",dh-cert-file=%s", dh_cert_file);
+    if (session_file)
+        virBufferAsprintf(&obj, ",session-file=%s", session_file);
+    virCommandAddArgBuffer(cmd, &obj);
+
+    VIR_DEBUG("policy=0x%x cbitpos=%d reduced_phys_bits=%d dh=%s session=%s",
+             sev->policy, sev->cbitpos, sev->reduced_phys_bits, dh_cert_file,
+             session_file);
+    return 0;
+}
 
 static int
 qemuBuildVMCoreInfoCommandLine(virCommandPtr cmd,
@@ -10106,6 +10180,9 @@ qemuBuildCommandLine(virQEMUDriverPtr driver,
         goto error;
 
     if (qemuBuildVMCoreInfoCommandLine(cmd, def, qemuCaps) < 0)
+        goto error;
+
+    if (def->sev && qemuBuildSevCommandLine(cmd, def) < 0)
         goto error;
 
     if (snapshot)
