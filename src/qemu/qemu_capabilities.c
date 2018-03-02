@@ -5975,6 +5975,8 @@ virQEMUCapsFillDomainCaps(virCapsPtr caps,
         virQEMUCapsFillDomainDeviceHostdevCaps(qemuCaps, hostdev) < 0 ||
         virQEMUCapsFillDomainFeatureGICCaps(qemuCaps, domCaps) < 0)
         return -1;
+
+    domCaps->sev = qemuCaps->sevCapabilities;
     return 0;
 }
 
