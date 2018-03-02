@@ -102,6 +102,16 @@ struct _virDomainCapsFeatureGIC {
     virDomainCapsEnum version; /* Info about virGICVersion */
 };
 
+typedef struct _virDomainCapsFeatureSEV virDomainCapsFeatureSEV;
+typedef virDomainCapsFeatureSEV *virDomainCapsFeatureSEVPtr;
+struct _virDomainCapsFeatureSEV {
+    bool supported;
+    char *pdh;  /* host platform-diffie hellman key */
+    char *cert_chain;  /* PDH certificate chain */
+    int cbitpos;
+    int reduced_phys_bits;
+};
+
 typedef enum {
     VIR_DOMCAPS_CPU_USABLE_UNKNOWN,
     VIR_DOMCAPS_CPU_USABLE_YES,
@@ -171,6 +181,7 @@ struct _virDomainCaps {
     /* add new domain devices here */
 
     virDomainCapsFeatureGIC gic;
+    virDomainCapsFeatureSEV sev;
     /* add new domain features here */
 };
 

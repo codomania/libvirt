@@ -549,6 +549,24 @@ virDomainCapsFeatureGICFormat(virBufferPtr buf,
     FORMAT_EPILOGUE(gic);
 }
 
+static void
+virDomainCapsFeatureSEVFormat(virBufferPtr buf,
+                              virDomainCapsFeatureSEVPtr const sev)
+{
+    FORMAT_PROLOGUE(sev);
+
+    if (sev->supported) {
+        virBufferAsprintf(buf, "<cbitpos>%d</cbitpos>\n", sev->cbitpos);
+        virBufferAsprintf(buf, "<reduced-phys-bits>%d</reduced-phys-bits>\n",
+                          sev->cbitpos);
+        virBufferAsprintf(buf, "<pdh>%s</pdh>\n", sev->pdh);
+        virBufferAsprintf(buf, "<cert-chain>%s</cert-chain>\n",
+                          sev->cert_chain);
+    }
+
+    FORMAT_EPILOGUE(sev);
+}
+
 
 char *
 virDomainCapsFormat(virDomainCapsPtr const caps)
@@ -587,6 +605,7 @@ virDomainCapsFormat(virDomainCapsPtr const caps)
     virBufferAdjustIndent(&buf, 2);
 
     virDomainCapsFeatureGICFormat(&buf, &caps->gic);
+    virDomainCapsFeatureSEVFormat(&buf, &caps->sev);
 
     virBufferAdjustIndent(&buf, -2);
     virBufferAddLit(&buf, "</features>\n");
