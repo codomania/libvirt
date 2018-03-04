@@ -253,6 +253,9 @@ const REMOTE_DOMAIN_IP_ADDR_MAX = 2048;
 /* Upper limit on number of guest vcpu information entries */
 const REMOTE_DOMAIN_GUEST_VCPU_PARAMS_MAX = 64;
 
+/* Upper limit on number of launch security information entries */
+const REMOTE_DOMAIN_LAUNCH_SECURITY_INFO_PARAMS_MAX = 64;
+
 /* UUID.  VIR_UUID_BUFLEN definition comes from libvirt.h */
 typedef opaque remote_uuid[VIR_UUID_BUFLEN];
 
@@ -3448,6 +3451,17 @@ struct remote_domain_set_lifecycle_action_args {
     unsigned int flags;
 };
 
+struct remote_domain_get_launch_security_info_args {
+    remote_nonnull_domain dom;
+    int nparams;
+    unsigned int flags;
+};
+
+struct remote_domain_get_launch_security_info_ret {
+    remote_typed_param params<REMOTE_DOMAIN_LAUNCH_SECURITY_INFO_PARAMS_MAX>;
+    int nparams;
+};
+
 /*----- Protocol. -----*/
 
 /* Define the program number, protocol version and procedure numbers here. */
@@ -6135,5 +6149,11 @@ enum remote_procedure {
      * @priority: high
      * @acl: storage_pool:getattr
      */
-    REMOTE_PROC_STORAGE_POOL_LOOKUP_BY_TARGET_PATH = 391
+    REMOTE_PROC_STORAGE_POOL_LOOKUP_BY_TARGET_PATH = 391,
+
+    /**
+     * @generate: none
+     * @acl: domain:read
+     */
+    REMOTE_PROC_DOMAIN_GET_LAUNCH_SECURITY_INFO = 392
 };
