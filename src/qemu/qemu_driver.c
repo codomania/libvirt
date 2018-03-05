@@ -21254,6 +21254,77 @@ qemuDomainSetLifecycleAction(virDomainPtr dom,
     return ret;
 }
 
+static int qemuDomainGetSevMeasurement(virQEMUDriverPtr driver,
+                                       virDomainObjPtr vm,
+                                       virTypedParameterPtr params,
+                                       int *nparams)
+{
+    int ret = -1;
+    char *tmp;
+    virTypedParameterPtr p;
+
+    if ((*nparams) == 0) {
+        *nparams = 1;
+        return 0;
+    }
+
+    if (qemuDomainObjBeginJob(driver, vm, QEMU_JOB_QUERY) < 0)
+        return -1;
+
+    if (qemuDomainObjEnterMonitorAsync(driver, vm, QEMU_ASYNC_JOB_NONE) < 0)
+        goto endjob;
+
+    tmp = qemuMonitorGetSevMeasurement(QEMU_DOMAIN_PRIVATE(vm)->mon);
+    if (tmp == NULL)
+        goto endjob;
+
+    if (qemuDomainObjExitMonitor(driver, vm) < 0)
+        goto endjob;
+
+    p = &params[0];
+    if (virTypedParameterAssign(p, VIR_DOMAIN_LAUNCH_SECURITY_SEV_MEASUREMENT,
+                            VIR_TYPED_PARAM_STRING, tmp) < 0)
+        goto endjob;
+
+    ret = 0;
+
+ endjob:
+    qemuDomainObjEndJob(driver, vm);
+    return ret;
+}
+
+
+static int
+qemuDomainGetLaunchSecurityInfo(virDomainPtr domain,
+                                virTypedParameterPtr params,
+                                int *nparams,
+                                unsigned int flags)
+{
+    virQEMUDriverPtr driver = domain->conn->privateData;
+    virDomainObjPtr vm;
+    int ret = -1;
+
+    virCheckFlags(VIR_DOMAIN_AFFECT_LIVE |
+                  VIR_DOMAIN_AFFECT_CONFIG |
+                  VIR_TYPED_PARAM_STRING_OKAY, -1);
+
+    if (!(vm = qemuDomObjFromDomain(domain)))
+        goto cleanup;
+
+    if (virDomainGetLaunchSecurityInfoEnsureACL(domain->conn, vm->def) < 0)
+        goto cleanup;
+
+    if (vm->def->sev) {
+        if (qemuDomainGetSevMeasurement(driver, vm, params, nparams) < 0)
+            goto cleanup;
+    }
+
+    ret = 0;
+
+ cleanup:
+    virDomainObjEndAPI(&vm);
+    return ret;
+}
 
 static virHypervisorDriver qemuHypervisorDriver = {
     .name = QEMU_DRIVER_NAME,
@@ -21474,6 +21545,7 @@ static virHypervisorDriver qemuHypervisorDriver = {
     .domainSetVcpu = qemuDomainSetVcpu, /* 3.1.0 */
     .domainSetBlockThreshold = qemuDomainSetBlockThreshold, /* 3.2.0 */
     .domainSetLifecycleAction = qemuDomainSetLifecycleAction, /* 3.9.0 */
+    .domainGetLaunchSecurityInfo = qemuDomainGetLaunchSecurityInfo, /* 4.2.0 */
 };
 
 
