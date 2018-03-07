@@ -2966,6 +2966,8 @@ mymain(void)
             QEMU_CAPS_HDA_DUPLEX);
     DO_TEST("user-aliases2", QEMU_CAPS_DEVICE_IOH3420, QEMU_CAPS_ICH9_AHCI);
 
+    DO_TEST("sev", QEMU_CAPS_SEV);
+
     if (getenv("LIBVIRT_SKIP_CLEANUP") == NULL)
         virFileDeleteTree(fakerootdir);
 
