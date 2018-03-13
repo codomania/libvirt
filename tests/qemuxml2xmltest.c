@@ -1243,6 +1243,8 @@ mymain(void)
     DO_TEST_STATUS("modern");
     DO_TEST_STATUS("migration-out-nbd");
 
+    DO_TEST("sev", NONE);
+
     if (getenv("LIBVIRT_SKIP_CLEANUP") == NULL)
         virFileDeleteTree(fakerootdir);
 

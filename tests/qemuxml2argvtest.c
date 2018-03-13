@@ -3004,6 +3004,8 @@ mymain(void)
     DO_TEST("disk-many-format-probing", QEMU_CAPS_DRIVE_BOOT);
     driver.config->allowDiskFormatProbing = false;
 
+    DO_TEST("sev", QEMU_CAPS_MACHINE_OPT, QEMU_CAPS_KVM, QEMU_CAPS_SEV);
+
     if (getenv("LIBVIRT_SKIP_CLEANUP") == NULL)
         virFileDeleteTree(fakerootdir);
 
