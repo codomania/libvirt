@@ -4007,6 +4007,15 @@ qemuMonitorGetGICCapabilities(qemuMonitorPtr mon,
     return qemuMonitorJSONGetGICCapabilities(mon, capabilities);
 }
 
+int
+qemuMonitorGetSEVCapabilities(qemuMonitorPtr mon,
+                              virSEVCapability **capabilities)
+{
+    QEMU_CHECK_MONITOR_JSON(mon);
+
+    return qemuMonitorJSONGetSEVCapabilities(mon, capabilities);
+}
+
 
 int
 qemuMonitorNBDServerStart(qemuMonitorPtr mon,
