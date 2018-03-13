@@ -2877,6 +2877,16 @@ struct remote_domain_set_lifecycle_action_args {
         u_int                      action;
         u_int                      flags;
 };
+struct remote_domain_get_launch_security_info_args {
+        remote_nonnull_domain      dom;
+        u_int                      flags;
+};
+struct remote_domain_get_launch_security_info_ret {
+        struct {
+                u_int              params_len;
+                remote_typed_param * params_val;
+        } params;
+};
 enum remote_procedure {
         REMOTE_PROC_CONNECT_OPEN = 1,
         REMOTE_PROC_CONNECT_CLOSE = 2,
@@ -3269,4 +3279,5 @@ enum remote_procedure {
         REMOTE_PROC_DOMAIN_MANAGED_SAVE_DEFINE_XML = 389,
         REMOTE_PROC_DOMAIN_SET_LIFECYCLE_ACTION = 390,
         REMOTE_PROC_STORAGE_POOL_LOOKUP_BY_TARGET_PATH = 391,
+        REMOTE_PROC_DOMAIN_GET_LAUNCH_SECURITY_INFO = 392,
 };
