@@ -1,6 +1,7 @@
 [submodule "gnulib"]
 	path = .gnulib
 	url = git://git.sv.gnu.org/gnulib.git
+	ignore = dirty
 [submodule "keycodemapdb"]
 	path = src/keycodemapdb
 	url = https://gitlab.com/keycodemap/keycodemapdb.git
