@@ -1188,4 +1188,7 @@ virJSONValuePtr qemuMonitorQueryNamedBlockNodes(qemuMonitorPtr mon);
 
 int qemuMonitorSetWatchdogAction(qemuMonitorPtr mon,
                                  const char *action);
+char *
+qemuMonitorGetSevMeasurement(qemuMonitorPtr mon);
+
 #endif /* QEMU_MONITOR_H */
