@@ -13877,6 +13877,84 @@ cmdDomFSInfo(vshControl *ctl, const vshCmd *cmd)
     return ret >= 0;
 }
 
+/*
+ * "launch-security" command
+ */
+static const vshCmdInfo info_launch_security[] = {
+    {.name = "help",
+        .data = N_("Get or set launch-security information")
+    },
+    {.name = "desc",
+        .data = N_("Get or set the current launch-security information for a guest"
+                   " domain.\n"
+                   "    To get the launch-security information use following command: \n\n"
+                   "    virsh # launch-security <domain>")
+    },
+    {.name = NULL}
+};
+
+static const vshCmdOptDef opts_launch_security[] = {
+    VIRSH_COMMON_OPT_DOMAIN_FULL(0),
+    {.name = "get",
+     .type = VSH_OT_STRING,
+     .help = N_("Show the launch-security info")
+    },
+    VIRSH_COMMON_OPT_DOMAIN_CONFIG,
+    VIRSH_COMMON_OPT_DOMAIN_LIVE,
+    VIRSH_COMMON_OPT_DOMAIN_CURRENT,
+    {.name = NULL}
+};
+
+static void
+virshPrintLaunchSecurityInfo(vshControl *ctl, virTypedParameterPtr params,
+                             int nparams)
+{
+    size_t i;
+
+    for (i = 0; i < nparams; i++) {
+        if (params[i].type == VIR_TYPED_PARAM_STRING)
+            vshPrintExtra(ctl, "%-15s: %s\n", params[i].field, params[i].value.s);
+    }
+}
+
+static bool
+cmdLaunchSecurity(vshControl *ctl, const vshCmd *cmd)
+{
+    virDomainPtr dom;
+    int nparams = 0;
+    virTypedParameterPtr params = NULL;
+    bool ret = false;
+    unsigned int flags = VIR_DOMAIN_AFFECT_CURRENT;
+    bool current = vshCommandOptBool(cmd, "current");
+    bool config = vshCommandOptBool(cmd, "config");
+    bool live = vshCommandOptBool(cmd, "live");
+
+    VSH_EXCLUSIVE_OPTIONS_VAR(current, live);
+    VSH_EXCLUSIVE_OPTIONS_VAR(current, config);
+
+    if (config)
+        flags |= VIR_DOMAIN_AFFECT_CONFIG;
+    if (live)
+        flags |= VIR_DOMAIN_AFFECT_LIVE;
+
+    if (!(dom = virshCommandOptDomain(ctl, cmd, NULL)))
+        return false;
+
+    if (virDomainGetLaunchSecurityInfo(dom, &params, &nparams, flags) != 0) {
+        vshError(ctl, "%s", _("Unable to get launch security info"));
+        goto cleanup;
+    }
+
+    virshPrintLaunchSecurityInfo(ctl, params, nparams);
+
+    ret = true;
+ cleanup:
+    virTypedParamsFree(params, nparams);
+    virshDomainFree(dom);
+    return ret;
+}
+
+
 const vshCmdDef domManagementCmds[] = {
     {.name = "attach-device",
      .handler = cmdAttachDevice,
@@ -14490,6 +14568,12 @@ const vshCmdDef domManagementCmds[] = {
      .handler = cmdDomblkthreshold,
      .opts = opts_domblkthreshold,
      .info = info_domblkthreshold,
+     .flags = 0
+    },
+    {.name = "launch-security",
+     .handler = cmdLaunchSecurity,
+     .opts = opts_launch_security,
+     .info = info_launch_security,
      .flags = 0
     },
     {.name = NULL}
