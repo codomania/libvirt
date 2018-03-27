@@ -929,6 +929,10 @@ VIR_ENUM_IMPL(virDomainShmemModel, VIR_DOMAIN_SHMEM_MODEL_LAST,
               "ivshmem-plain",
               "ivshmem-doorbell")
 
+VIR_ENUM_IMPL(virDomainLaunchSecurity, VIR_DOMAIN_LAUNCH_SECURITY_LAST,
+              "",
+              "sev")
+
 static virClassPtr virDomainObjClass;
 static virClassPtr virDomainXMLOptionClass;
 static void virDomainObjDispose(void *obj);
@@ -2897,6 +2901,14 @@ virDomainCachetuneDefFree(virDomainCachetuneDefPtr cachetune)
     VIR_FREE(cachetune);
 }
 
+static void
+virDomainSevDefFree(virDomainSevDefPtr def)
+{
+    VIR_FREE(def->dh_cert);
+    VIR_FREE(def->session);
+
+    VIR_FREE(def);
+}
 
 void virDomainDefFree(virDomainDefPtr def)
 {
@@ -3078,6 +3090,9 @@ void virDomainDefFree(virDomainDefPtr def)
 
     if (def->namespaceData && def->ns.free)
         (def->ns.free)(def->namespaceData);
+
+    if (def->sev)
+        virDomainSevDefFree(def->sev);
 
     xmlFreeNode(def->metadata);
 
@@ -15537,6 +15552,70 @@ virDomainMemoryTargetDefParseXML(xmlNodePtr node,
     return ret;
 }
 
+static virDomainSevDefPtr
+virDomainSevDefParseXML(xmlNodePtr sevNode, xmlXPathContextPtr ctxt)
+{
+    char *tmp = NULL, *type = NULL;
+    xmlNodePtr save = ctxt->node;
+    virDomainSevDefPtr def;
+    unsigned long policy;
+
+    ctxt->node = sevNode;
+
+    if (VIR_ALLOC(def) < 0)
+        return NULL;
+
+    if (!(type = virXMLPropString(sevNode, "type"))) {
+        virReportError(VIR_ERR_XML_ERROR, "%s",
+                       _("missing launch-security type"));
+        goto error;
+    }
+
+    if (virDomainLaunchSecurityTypeFromString(type) !=
+        VIR_DOMAIN_LAUNCH_SECURITY_SEV) {
+        goto error;
+    }
+
+    if (virXPathUInt("string(./cbitpos)", ctxt, &def->cbitpos) < 0) {
+        virReportError(VIR_ERR_XML_ERROR, "%s", _("failed to get cbitpos"));
+        goto error;
+    }
+
+    if (virXPathUInt("string(./reduced-phys-bits)", ctxt,
+                    &def->reduced_phys_bits) < 0) {
+        virReportError(VIR_ERR_XML_ERROR, "%s",
+                       _("failed to get reduced-phys-bits"));
+        goto error;
+    }
+
+    if (virXPathULongHex("string(./policy)", ctxt, &policy) < 0)
+        policy = 0x1;
+
+    def->policy = policy;
+
+    if ((tmp = virXPathString("string(./dh-cert)", ctxt))) {
+        if (VIR_STRDUP(def->dh_cert, tmp) < 0)
+            goto error;
+
+        VIR_FREE(tmp);
+    }
+
+    if ((tmp = virXPathString("string(./session)", ctxt))) {
+        if (VIR_STRDUP(def->session, tmp) < 0)
+            goto error;
+
+        VIR_FREE(tmp);
+    }
+
+    ctxt->node = save;
+    return def;
+
+ error:
+    VIR_FREE(tmp);
+    virDomainSevDefFree(def);
+    ctxt->node = save;
+    return NULL;
+}
 
 static virDomainMemoryDefPtr
 virDomainMemoryDefParseXML(virDomainXMLOptionPtr xmlopt,
@@ -20209,6 +20288,13 @@ virDomainDefParseXML(xmlDocPtr xml,
     }
     ctxt->node = node;
     VIR_FREE(nodes);
+
+    /* Check for SEV feature */
+    if ((node = virXPathNode("./launch-security", ctxt)) != NULL) {
+        def->sev = virDomainSevDefParseXML(node, ctxt);
+        if (!def->sev)
+            goto error;
+    }
 
     /* analysis of memory devices */
     if ((n = virXPathNodeSet("./devices/memory", ctxt, &nodes)) < 0)
@@ -26087,6 +26173,27 @@ virDomainKeyWrapDefFormat(virBufferPtr buf, virDomainKeyWrapDefPtr keywrap)
 }
 
 static void
+virDomainSevDefFormat(virBufferPtr buf, virDomainSevDefPtr sev)
+{
+    virBufferAddLit(buf, "<launch-security type='sev'>\n");
+    virBufferAdjustIndent(buf, 2);
+
+    virBufferAsprintf(buf, "<cbitpos>%d</cbitpos>\n", sev->cbitpos);
+    virBufferAsprintf(buf, "<reduced-phys-bits>%d</reduced-phys-bits>\n",
+                      sev->reduced_phys_bits);
+    virBufferAsprintf(buf, "<policy>%d</policy>\n", sev->policy);
+    if (sev->dh_cert)
+        virBufferAsprintf(buf, "<dh_cert>%s</dh_cert>\n", sev->dh_cert);
+
+    if (sev->session)
+        virBufferAsprintf(buf, "<session>%s</session>\n", sev->session);
+
+    virBufferAdjustIndent(buf, -2);
+    virBufferAddLit(buf, "</launch-security>\n");
+}
+
+
+static void
 virDomainPerfDefFormat(virBufferPtr buf, virDomainPerfDefPtr perf)
 {
     size_t i;
@@ -27257,6 +27364,9 @@ virDomainDefFormatInternal(virDomainDefPtr def,
 
     if (def->keywrap)
         virDomainKeyWrapDefFormat(buf, def->keywrap);
+
+    if (def->sev)
+        virDomainSevDefFormat(buf, def->sev);
 
     virBufferAdjustIndent(buf, -2);
     virBufferAddLit(buf, "</domain>\n");
