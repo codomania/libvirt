@@ -4417,3 +4417,11 @@ qemuMonitorSetWatchdogAction(qemuMonitorPtr mon,
 
     return qemuMonitorJSONSetWatchdogAction(mon, action);
 }
+
+char *
+qemuMonitorGetSevMeasurement(qemuMonitorPtr mon)
+{
+    QEMU_CHECK_MONITOR_NULL(mon);
+
+    return qemuMonitorJSONGetSevMeasurement(mon);
+}
