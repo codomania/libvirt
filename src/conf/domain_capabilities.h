@@ -170,6 +170,7 @@ struct _virDomainCaps {
     /* add new domain devices here */
 
     virDomainCapsFeatureGIC gic;
+    virSEVCapabilityPtr sev;
     /* add new domain features here */
 };
 

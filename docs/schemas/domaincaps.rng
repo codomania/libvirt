@@ -173,6 +173,9 @@
     <element name='features'>
       <interleave>
         <ref name='gic'/>
+        <optional>
+        <ref name='sev'/>
+        </optional>
       </interleave>
     </element>
   </define>
@@ -181,6 +184,23 @@
     <element name='gic'>
       <ref name='supported'/>
       <ref name='enum'/>
+    </element>
+  </define>
+
+  <define name='sev'>
+    <element name='sev'>
+      <element name='pdh'>
+        <data type='string'/>
+      </element>
+      <element name='cert-chain'>
+        <data type='string'/>
+      </element>
+      <element name='cbitpos'>
+        <data type='unsignedInt'/>
+      </element>
+      <element name='reduced-phys-bits'>
+        <data type='unsignedInt'/>
+      </element>
     </element>
   </define>
 
