@@ -6398,6 +6398,79 @@ qemuMonitorJSONGetGICCapabilities(qemuMonitorPtr mon,
     return ret;
 }
 
+int
+qemuMonitorJSONGetSEVCapabilities(qemuMonitorPtr mon,
+                                  virSEVCapability **capabilities)
+{
+    int ret = -1;
+    virJSONValuePtr cmd;
+    virJSONValuePtr reply = NULL;
+    virJSONValuePtr caps;
+    virSEVCapability *capability = NULL;
+    const char *pdh = NULL, *cert_chain = NULL;
+    int cbitpos, reduced_phys_bits;
+
+    *capabilities = NULL;
+
+    if (!(cmd = qemuMonitorJSONMakeCommand("query-sev-capabilities",
+                                           NULL)))
+        return -1;
+
+    if (qemuMonitorJSONCommand(mon, cmd, &reply) < 0)
+        goto cleanup;
+
+
+    if (qemuMonitorJSONCheckError(cmd, reply) < 0)
+        goto cleanup;
+
+    caps = virJSONValueObjectGetObject(reply, "return");
+
+    if (virJSONValueObjectGetNumberInt(caps, "cbitpos", &cbitpos) < 0) {
+        virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                       _("'cbitpos' field is missing"));
+        goto cleanup;
+    }
+
+    if (virJSONValueObjectGetNumberInt(caps, "reduced-phys-bits",
+                                       &reduced_phys_bits) < 0) {
+        virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                       _("'reduced-phys-bits' field is missing"));
+        goto cleanup;
+    }
+
+    if (!(pdh = virJSONValueObjectGetString(caps, "pdh"))) {
+        virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                       _("'pdh' field is missing"));
+        goto cleanup;
+    }
+
+    if (!(cert_chain = virJSONValueObjectGetString(caps, "cert-chain"))) {
+        virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                       _("'cert-chain' field is missing"));
+        goto cleanup;
+    }
+
+    if (VIR_ALLOC(capability) < 0)
+        goto cleanup;
+
+    if (VIR_STRDUP(capability->pdh, pdh) < 0)
+        goto cleanup;
+
+    if (VIR_STRDUP(capability->cert_chain, cert_chain) < 0)
+        goto cleanup;
+
+    capability->cbitpos = cbitpos;
+    capability->reduced_phys_bits = reduced_phys_bits;
+    *capabilities = capability;
+    ret = 0;
+
+ cleanup:
+    virJSONValueFree(cmd);
+    virJSONValueFree(reply);
+
+    return ret;
+}
+
 static virJSONValuePtr
 qemuMonitorJSONBuildInetSocketAddress(const char *host,
                                       const char *port)

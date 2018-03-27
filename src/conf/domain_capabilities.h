@@ -137,6 +137,19 @@ struct _virDomainCapsCPU {
     virDomainCapsCPUModelsPtr custom;
 };
 
+/*
+ * SEV capabilities
+ */
+typedef struct _virSEVCapability virSEVCapability;
+typedef virSEVCapability *virSEVCapabilityPtr;
+struct _virSEVCapability {
+    char *pdh;
+    char *cert_chain;
+    unsigned int cbitpos;
+    unsigned int reduced_phys_bits;
+};
+
+
 struct _virDomainCaps {
     virObjectLockable parent;
 

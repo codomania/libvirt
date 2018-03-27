@@ -466,6 +466,7 @@ VIR_ENUM_IMPL(virQEMUCaps, QEMU_CAPS_LAST,
               /* 285 */
               "virtio-mouse-ccw",
               "virtio-tablet-ccw",
+              "sev-guest",
     );
 
 
@@ -531,6 +532,8 @@ struct _virQEMUCaps {
 
     size_t ngicCapabilities;
     virGICCapability *gicCapabilities;
+
+    virSEVCapability *sevCapabilities;
 
     virQEMUCapsHostCPUData kvmCPU;
     virQEMUCapsHostCPUData tcgCPU;
@@ -1705,6 +1708,7 @@ struct virQEMUCapsStringFlags virQEMUCapsObjectTypes[] = {
     { "virtio-keyboard-ccw", QEMU_CAPS_DEVICE_VIRTIO_KEYBOARD_CCW },
     { "virtio-mouse-ccw", QEMU_CAPS_DEVICE_VIRTIO_MOUSE_CCW },
     { "virtio-tablet-ccw", QEMU_CAPS_DEVICE_VIRTIO_TABLET_CCW },
+    { "sev-guest", QEMU_CAPS_SEV_GUEST },
 };
 
 static struct virQEMUCapsStringFlags virQEMUCapsObjectPropsVirtioBalloon[] = {
@@ -2784,6 +2788,21 @@ virQEMUCapsSetGICCapabilities(virQEMUCapsPtr qemuCaps,
     qemuCaps->ngicCapabilities = ncapabilities;
 }
 
+void
+virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                              virSEVCapability *capabilities)
+{
+    virSEVCapability *cap = qemuCaps->sevCapabilities;
+
+    if (cap) {
+        VIR_FREE(cap->pdh);
+        VIR_FREE(cap->cert_chain);
+    }
+
+    VIR_FREE(qemuCaps->sevCapabilities);
+
+    qemuCaps->sevCapabilities = capabilities;
+}
 
 static int
 virQEMUCapsProbeQMPCommands(virQEMUCapsPtr qemuCaps,
@@ -3287,6 +3306,19 @@ virQEMUCapsProbeQMPGICCapabilities(virQEMUCapsPtr qemuCaps,
     return 0;
 }
 
+static int
+virQEMUCapsProbeQMPSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                                   qemuMonitorPtr mon)
+{
+    virSEVCapability *caps = NULL;
+
+    if (qemuMonitorGetSEVCapabilities(mon, &caps) < 0)
+        return -1;
+
+    virQEMUCapsSetSEVCapabilities(qemuCaps, caps);
+
+    return 0;
+}
 
 bool
 virQEMUCapsCPUFilterFeatures(const char *name,
@@ -4767,6 +4799,12 @@ virQEMUCapsInitQMPMonitor(virQEMUCapsPtr qemuCaps,
     if (ARCH_IS_X86(qemuCaps->arch) &&
         virQEMUCapsGet(qemuCaps, QEMU_CAPS_QUERY_CPU_MODEL_EXPANSION))
         virQEMUCapsSet(qemuCaps, QEMU_CAPS_CPU_CACHE);
+
+    /* Probe for SEV capabilities */
+    if (virQEMUCapsGet(qemuCaps, QEMU_CAPS_SEV_GUEST)) {
+        if (virQEMUCapsProbeQMPSEVCapabilities(qemuCaps, mon) < 0)
+            virQEMUCapsClear(qemuCaps, QEMU_CAPS_SEV_GUEST);
+    }
 
     ret = 0;
  cleanup:
