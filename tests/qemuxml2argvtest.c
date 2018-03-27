@@ -3023,6 +3023,8 @@ mymain(void)
             QEMU_CAPS_DEVICE_VIRTIO_MOUSE_CCW,
             QEMU_CAPS_DEVICE_VIRTIO_TABLET_CCW);
 
+    DO_TEST("sev", QEMU_CAPS_MACHINE_OPT, QEMU_CAPS_KVM, QEMU_CAPS_SEV_GUEST);
+
     if (getenv("LIBVIRT_SKIP_CLEANUP") == NULL)
         virFileDeleteTree(fakerootdir);
 
