@@ -2899,6 +2899,11 @@ See B<vcpupin> for information on I<cpulist>.
 Output the IP address and port number for the VNC display. If the information
 is not available the processes will provide an exit code of 1.
 
+=item B<launch-security-info> I<domain>
+
+Get the measurement of the memory contents encrypted through the launch
+sequence when I<launch-security> is provided.
+
 =back
 
 =head1 DEVICE COMMANDS
