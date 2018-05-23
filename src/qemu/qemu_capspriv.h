@@ -85,6 +85,10 @@ virQEMUCapsSetGICCapabilities(virQEMUCapsPtr qemuCaps,
                               virGICCapability *capabilities,
                               size_t ncapabilities);
 
+void
+virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
+                              virSEVCapability *capabilities);
+
 int
 virQEMUCapsProbeQMPCPUDefinitions(virQEMUCapsPtr qemuCaps,
                                   qemuMonitorPtr mon,
