@@ -792,4 +792,9 @@ LIBVIRT_4.4.0 {
         virConnectBaselineHypervisorCPU;
 } LIBVIRT_4.1.0;
 
+LIBVIRT_4.5.0 {
+    global:
+        virNodeGetSEVCapability;
+} LIBVIRT_4.4.0;
+
 # .... define new API here using predicted next version number ....
