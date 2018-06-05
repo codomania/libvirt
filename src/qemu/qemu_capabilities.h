@@ -477,6 +477,7 @@ typedef enum { /* virQEMUCapsFlags grouping marker for syntax-check */
 
     /* 305 */
     QEMU_CAPS_DEVICE_VHOST_VSOCK, /* -device vhost-vsock-* */
+    QEMU_CAPS_SEV_GUEST, /* -object sev-guest,... */
 
     QEMU_CAPS_LAST /* this must always be the last item */
 } virQEMUCapsFlags;
@@ -614,5 +615,4 @@ bool virQEMUCapsGuestIsNative(virArch host,
 
 bool virQEMUCapsCPUFilterFeatures(const char *name,
                                   void *opaque);
-
 #endif /* __QEMU_CAPABILITIES_H__*/
