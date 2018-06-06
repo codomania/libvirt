@@ -2081,6 +2081,13 @@ virQEMUCapsSetSEVCapabilities(virQEMUCapsPtr qemuCaps,
 }
 
 
+virSEVCapabilityPtr
+virQEMUCapsGetSEVCapabilities(virQEMUCapsPtr qemuCaps)
+{
+    return qemuCaps->sevCapabilities;
+}
+
+
 static int
 virQEMUCapsProbeQMPCommands(virQEMUCapsPtr qemuCaps,
                             qemuMonitorPtr mon)

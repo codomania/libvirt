@@ -21437,6 +21437,96 @@ qemuDomainSetLifecycleAction(virDomainPtr dom,
 }
 
 
+static int
+qemuGetSEVInfo(virQEMUCapsPtr qemuCaps,
+               virTypedParameterPtr *params,
+               int *nparams,
+               unsigned int flags)
+{
+    int maxpar = 0;
+    virSEVCapabilityPtr sev = virQEMUCapsGetSEVCapabilities(qemuCaps);
+
+    virCheckFlags(VIR_TYPED_PARAM_STRING_OKAY, -1);
+
+    if (virTypedParamsAddString(params, nparams, &maxpar,
+                    VIR_NODE_SEV_PDH, sev->pdh) < 0)
+        return -1;
+
+    if (virTypedParamsAddString(params, nparams, &maxpar,
+                    VIR_NODE_SEV_CERT_CHAIN, sev->pdh) < 0)
+        goto cleanup;
+
+    if (virTypedParamsAddUInt(params, nparams, &maxpar,
+                    VIR_NODE_SEV_CBITPOS, sev->cbitpos) < 0)
+        goto cleanup;
+
+    if (virTypedParamsAddUInt(params, nparams, &maxpar,
+                    VIR_NODE_SEV_REDUCED_PHYS_BITS,
+                    sev->reduced_phys_bits) < 0)
+        goto cleanup;
+
+    return 0;
+
+ cleanup:
+    return -1;
+}
+
+
+static int
+qemuNodeGetSEVInfo(virConnectPtr conn,
+                   virTypedParameterPtr *params,
+                   int *nparams,
+                   unsigned int flags)
+{
+    virQEMUDriverPtr driver = conn->privateData;
+    virCapsPtr caps = NULL;
+    virQEMUCapsPtr qemucaps = NULL;
+    virArch hostarch;
+    virCapsDomainDataPtr capsdata;
+    int ret = -1;
+
+    if (virNodeGetSevInfoEnsureACL(conn) < 0)
+        return ret;
+
+    if (!(caps = virQEMUDriverGetCapabilities(driver, true)))
+        return ret;
+
+    hostarch = virArchFromHost();
+    if (!(capsdata = virCapabilitiesDomainDataLookup(caps,
+            VIR_DOMAIN_OSTYPE_HVM, hostarch, VIR_DOMAIN_VIRT_QEMU,
+            NULL, NULL))) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                       _("Cannot find suitable emulator for %s"),
+                       virArchToString(hostarch));
+        goto UnrefCaps;
+    }
+
+    qemucaps = virQEMUCapsCacheLookup(driver->qemuCapsCache,
+                                      capsdata->emulator);
+    VIR_FREE(capsdata);
+    if (!qemucaps)
+        goto UnrefCaps;
+
+    if (!virQEMUCapsGet(qemucaps, QEMU_CAPS_SEV_GUEST)) {
+        virReportError(VIR_ERR_OPERATION_UNSUPPORTED, "%s",
+                       _("QEMU does not support SEV guest"));
+        goto UnrefQemuCaps;
+    }
+
+    if (qemuGetSEVInfo(qemucaps, params, nparams, flags) < 0)
+        goto UnrefQemuCaps;
+
+    ret = 0;
+
+ UnrefQemuCaps:
+    virObjectUnref(qemucaps);
+ UnrefCaps:
+    virObjectUnref(caps);
+
+    return ret;
+}
+
+
 static virHypervisorDriver qemuHypervisorDriver = {
     .name = QEMU_DRIVER_NAME,
     .connectURIProbe = qemuConnectURIProbe,
@@ -21660,6 +21750,7 @@ static virHypervisorDriver qemuHypervisorDriver = {
     .domainSetLifecycleAction = qemuDomainSetLifecycleAction, /* 3.9.0 */
     .connectCompareHypervisorCPU = qemuConnectCompareHypervisorCPU, /* 4.4.0 */
     .connectBaselineHypervisorCPU = qemuConnectBaselineHypervisorCPU, /* 4.4.0 */
+    .nodeGetSEVInfo = qemuNodeGetSEVInfo, /* 4.5.0 */
 };
 
 
