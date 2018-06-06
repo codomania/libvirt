@@ -185,7 +185,7 @@ virDomainCapsEnumClear;
 virDomainCapsEnumSet;
 virDomainCapsFormat;
 virDomainCapsNew;
-
+virSEVCapabilitiesFree;
 
 # conf/domain_conf.h
 virBlkioDeviceArrayClear;
